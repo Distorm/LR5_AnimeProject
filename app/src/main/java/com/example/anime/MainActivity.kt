@@ -2,45 +2,69 @@ package com.example.anime
 
 import android.content.Intent
 import android.os.Bundle
-import android.widget.ImageView
+import android.util.Log
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.example.anime.adapter.AnimeAdapter
-import com.example.anime.adapter.FavAnimeAdapter
+import com.example.anime.data.APIResponse
 import com.example.anime.data.Anime
-import com.example.anime.model.Anime
+import com.example.anime.data.AnimeRepository
+import com.example.anime.databinding.ActivityMainBinding
+import com.example.anime.network.IapiResponse
+import com.example.anime.network.RetrofitInstance
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
-
+    private val TAG = "MainActivity"
+    private lateinit var binding : ActivityMainBinding
     private lateinit var animeAdapter: AnimeAdapter
-    private lateinit var favAnimeAdapter: FavAnimeAdapter
-    private lateinit var animeList: List<Anime>
-    private lateinit var favAnimeList: MutableList<Anime>
+    private var animeList = ArrayList<Anime>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContentView(R.layout.activity_main)
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
+        }
 
-        // Инициализация данных аниме
-        animeList = listOf(
-            // Добавьте сюда свои данные аниме
-        )
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(this.binding.root)
 
-        favAnimeList = mutableListOf()
+        connectToWebServices()
 
-        // Инициализация адаптеров
-        animeAdapter = AnimeAdapter(animeList)
-        favAnimeAdapter = FavAnimeAdapter(favAnimeList)
+        this.binding.tvAnime.layoutManager = LinearLayoutManager(this)
+        this.binding.tvAnime.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
 
-        // Настройка RecyclerView для списка аниме
-        val recyclerView: RecyclerView = findViewById(R.id.tvAnime)
-        recyclerView.layoutManager = LinearLayoutManager(this)
-        recyclerView.adapter = animeAdapter
+        this.animeAdapter = AnimeAdapter(this@MainActivity, AnimeRepository(this))
+        this.binding.tvAnime.adapter = this.animeAdapter
 
-        // Обработчик нажатия на изображение избранных аниме
-        findViewById<ImageView>(R.id.favAnime).setOnClickListener {
-            startActivity(Intent(this, FavAnimeActivity::class.java))
+        binding.favAnime.setOnClickListener {
+            val intent = Intent(this@MainActivity, FavAnime::class.java)
+            startActivity(intent)
+        }
+    }
+
+    private fun connectToWebServices(){
+        var animeAPI : IapiResponse = RetrofitInstance.retrofitService
+
+        lifecycleScope.launch{
+            val response : APIResponse<List<Anime>> = animeAPI.getAnimeList()
+
+            val APIAnimeList : List<Anime> = response.data
+
+            animeList.clear()
+            animeList.addAll(APIAnimeList)
+            animeAdapter.setAnimeList(animeList)
+
+            Log.d(TAG, "Подключение к веб-сервису : Название аниме : ${animeList}")
         }
     }
 }
